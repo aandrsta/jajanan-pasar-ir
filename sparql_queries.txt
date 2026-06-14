@@ -1,0 +1,193 @@
+=== PREFIX ===
+PREFIX jp: <http://www.semanticweb.org/ontologi/jajanan-pasar#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+
+--------------------------------------------------------
+Query 1: Tampilkan semua jajanan beserta deskripsinya
+--------------------------------------------------------
+Tujuan: Mendapatkan daftar lengkap seluruh jajanan yang terdaftar dalam ontologi.
+
+SELECT ?namaJajanan ?deskripsi
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    OPTIONAL { ?jajanan jp:deskripsi ?deskripsi }
+}
+ORDER BY ?namaJajanan
+
+
+--------------------------------------------------------
+Query 2: Cari jajanan berdasarkan bahan pewarna alami
+--------------------------------------------------------
+Tujuan: Sistem pencarian — user ingin tahu jajanan apa saja yang menggunakan
+        bahan pewarna tertentu (contoh: daun pandan).
+
+SELECT ?namaJajanan ?warnaUtama ?bahan
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    ?jajanan jp:menggunakanBahan ?b .
+    ?b rdf:type jp:BahanPewarna .
+    ?b rdfs:label ?bahan .
+    OPTIONAL { ?jajanan jp:warnaUtama ?warnaUtama }
+}
+ORDER BY ?bahan ?namaJajanan
+
+
+--------------------------------------------------------
+Query 3: Filter jajanan dari Jawa yang dibuat dengan cara dikukus
+--------------------------------------------------------
+Tujuan: Pencarian multi-kriteria — kombinasi daerah asal dan teknik memasak.
+
+SELECT ?namaJajanan ?rasa ?tekstur
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    ?jajanan jp:berasalDari jp:Jawa .
+    ?jajanan jp:dibuatDengan jp:Dikukus .
+    OPTIONAL { ?jajanan jp:rasaDominan ?rasa }
+    OPTIONAL { ?jajanan jp:memilikiTekstur ?t . ?t rdfs:label ?tekstur }
+}
+ORDER BY ?namaJajanan
+
+
+--------------------------------------------------------
+Query 4: Jajanan yang cocok untuk acara selamatan
+--------------------------------------------------------
+Tujuan: Rekomendasi kontekstual — user sedang menyiapkan acara adat dan
+        ingin tahu jajanan yang biasa disajikan.
+
+SELECT ?namaJajanan ?deskripsi ?rasa
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    ?jajanan jp:disajikanPada jp:Selamatan .
+    OPTIONAL { ?jajanan jp:deskripsi ?deskripsi }
+    OPTIONAL { ?jajanan jp:rasaDominan ?rasa }
+}
+
+
+--------------------------------------------------------
+Query 5: Jajanan bertekstur kenyal dengan bahan dasar ketan
+--------------------------------------------------------
+Tujuan: Pencarian berdasarkan karakteristik fisik — user ingin makanan
+        dengan tekstur spesifik.
+
+SELECT ?namaJajanan ?namaLain ?harga
+WHERE {
+    ?jajanan rdf:type jp:BerbahanKetan .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    ?jajanan jp:memilikiTekstur jp:Kenyal .
+    OPTIONAL { ?jajanan jp:namaLain ?namaLain }
+    OPTIONAL { ?jajanan jp:hargaRataRata ?harga }
+}
+ORDER BY ?harga
+
+
+--------------------------------------------------------
+Query 6: Cari jajanan yang "serumpun" dengan Klepon
+         (relasi similarity/kekerabatan)
+--------------------------------------------------------
+Tujuan: Fitur rekomendasi "jajanan serupa" — setelah user menemukan satu
+        jajanan, sistem menyarankan jajanan lain yang mirip.
+
+SELECT ?namaJajanan ?deskripsi
+WHERE {
+    {
+        jp:Klepon jp:serumpunDengan ?jajanan .
+    } UNION {
+        ?jajanan jp:serumpunDengan jp:Klepon .
+    }
+    ?jajanan jp:namaLokal ?namaJajanan .
+    OPTIONAL { ?jajanan jp:deskripsi ?deskripsi }
+}
+
+
+--------------------------------------------------------
+Query 7: Rekap statistik — hitung jumlah jajanan per daerah asal
+--------------------------------------------------------
+Tujuan: Analisis distribusi data ontologi — berguna untuk bagian
+        evaluasi/hasil di laporan.
+
+SELECT ?daerah (COUNT(?jajanan) AS ?jumlahJajanan)
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:berasalDari ?d .
+    ?d rdfs:label ?daerah .
+}
+GROUP BY ?daerah
+ORDER BY DESC(?jumlahJajanan)
+
+
+--------------------------------------------------------
+Query 8: Jajanan yang tidak tahan lama (tahanLama = false)
+         dan harganya di bawah 2000 rupiah
+--------------------------------------------------------
+Tujuan: Filter gabungan data property — pencarian praktis dari sudut
+        pandang pembeli.
+
+SELECT ?namaJajanan ?harga ?rasa
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    ?jajanan jp:tahanLama ?tahan .
+    ?jajanan jp:hargaRataRata ?harga .
+    FILTER(?tahan = false && ?harga < 2000)
+    OPTIONAL { ?jajanan jp:rasaDominan ?rasa }
+}
+ORDER BY ?harga
+
+
+--------------------------------------------------------
+Query 9: Tampilkan semua bahan yang digunakan oleh jajanan basah
+         berbahan ketan (lengkap dengan tipe bahannya)
+--------------------------------------------------------
+Tujuan: Eksplorasi relasi — memetakan bahan apa saja yang dominan
+        digunakan oleh subkategori tertentu.
+
+SELECT ?namaJajanan ?bahan ?tipeBahan
+WHERE {
+    ?jajanan rdf:type jp:BerbahanKetan .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    ?jajanan jp:menggunakanBahan ?b .
+    ?b rdfs:label ?bahan .
+    ?b rdf:type ?tb .
+    ?tb rdfs:label ?tipeBahan .
+    FILTER(?tb != owl:NamedIndividual)
+}
+ORDER BY ?namaJajanan ?tipeBahan
+
+
+--------------------------------------------------------
+Query 10: Full-text style search — cari jajanan dengan kata kunci
+          pada nama atau deskripsi (simulasi search bar)
+--------------------------------------------------------
+Tujuan: Simulasi fitur pencarian teks bebas yang bisa diintegrasikan
+        ke antarmuka pencarian semantik.
+
+# Ganti nilai FILTER sesuai keyword yang dicari user
+# Contoh di bawah: mencari keyword "hijau"
+
+SELECT ?namaJajanan ?deskripsi ?warnaUtama
+WHERE {
+    ?jajanan rdf:type ?tipe .
+    ?tipe rdfs:subClassOf* jp:JajananPasar .
+    ?jajanan jp:namaLokal ?namaJajanan .
+    OPTIONAL { ?jajanan jp:deskripsi ?deskripsi }
+    OPTIONAL { ?jajanan jp:warnaUtama ?warnaUtama }
+    FILTER(
+        regex(LCASE(?namaJajanan), "hijau") ||
+        regex(LCASE(?deskripsi), "hijau") ||
+        regex(LCASE(?warnaUtama), "hijau")
+    )
+}
